@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:just_audio/just_audio.dart';
 import 'dart:convert';
 import '../../models/colors.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17,11 +19,16 @@ class _ChatPageState extends State<ChatPage> {
   final List<ChatMessage> _messages = [];
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
+  late WebSocketChannel channel;
+  final audioPlayer = AudioPlayer();
+  bool _isProcessing = false; // Add this flag to prevent overlapping
 
   @override
   void initState() {
     super.initState();
     _initializeSpeech();
+    _connectWebSocket();
+    _setupAudioPlayerListeners();
   }
 
   void _initializeSpeech() async {
@@ -31,26 +38,104 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _listen() async {
-    if (!_isListening) {
-      bool available = await _speech.initialize();
-      if (available) {
-        setState(() => _isListening = true);
-        _speech.listen(
-          onResult: (result) {
-            setState(() {
-              _messageController.text = result.recognizedWords;
-              if (result.finalResult) {
-                _isListening = false;
-              }
-            });
-          },
-        );
+  void _setupAudioPlayerListeners() {
+    audioPlayer.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        // Automatically start listening when audio finishes
+        _startListening();
       }
-    } else {
-      setState(() => _isListening = false);
-      _speech.stop();
+    });
+  }
+
+  void _connectWebSocket() {
+    channel = WebSocketChannel.connect(
+      Uri.parse('ws://10.156.140.216:8000/ws'),
+    );
+
+    channel.stream.listen((message) async {
+      if (_isProcessing) return; // Prevent multiple processing
+      _isProcessing = true;
+
+      final data = json.decode(message);
+      if (data['type'] == 'response') {
+        setState(() {
+          _messages.insert(
+            0,
+            ChatMessage(
+              text: data['text'],
+              isUser: false,
+              timestamp: DateTime.now(),
+            ),
+          );
+        });
+      } else if (data['type'] == 'audio') {
+        _stopListening(); // Stop listening while playing audio
+        try {
+          await audioPlayer.setUrl(data['audio_url']);
+          await audioPlayer.play();
+        } catch (e) {
+          print('Error playing audio: $e');
+          _startListening(); // Start listening if audio fails
+        }
+      }
+      _isProcessing = false;
+    });
+  }
+
+  void _startListening() async {
+    if (_isListening || _isProcessing) return;
+
+    bool available = await _speech.initialize(
+      onStatus: (status) {
+        print('Speech status: $status');
+        if (status == 'notListening') {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (error) {
+        print('Speech error: $error');
+        setState(() => _isListening = false);
+      },
+    );
+
+    if (available) {
+      setState(() => _isListening = true);
+      _speech.listen(
+        onResult: (result) {
+          if (result.finalResult) {
+            final recognizedText = result.recognizedWords;
+            if (recognizedText.isNotEmpty) {
+              setState(() {
+                _messages.insert(
+                  0,
+                  ChatMessage(
+                    text: recognizedText,
+                    isUser: true,
+                    timestamp: DateTime.now(),
+                  ),
+                );
+              });
+
+              channel.sink.add(json.encode({
+                'type': 'text',
+                'user_id': '12345',
+                'text': recognizedText,
+              }));
+
+              _stopListening(); // Stop listening after sending
+            }
+          }
+        },
+        listenMode: stt.ListenMode.dictation,
+        cancelOnError: true,
+        listenFor: Duration(seconds: 10), // Adjust this duration as needed
+      );
     }
+  }
+
+  void _stopListening() {
+    _speech.stop();
+    setState(() => _isListening = false);
   }
 
   void _handleSubmitted(String text) async {
@@ -195,8 +280,8 @@ class _ChatPageState extends State<ChatPage> {
       child: Row(
         children: [
           IconButton(
-            icon: Icon(_isListening ? Icons.mic : Icons.mic_none),
-            onPressed: _listen,
+            icon: Icon(_isListening ? Icons.mic_off : Icons.mic),
+            onPressed: _isListening ? _stopListening : _startListening,
             color: _isListening ? Colors.red : Colors.grey,
           ),
           Expanded(
@@ -221,6 +306,14 @@ class _ChatPageState extends State<ChatPage> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _speech.stop();
+    channel.sink.close();
+    audioPlayer.dispose();
+    super.dispose();
   }
 }
 
