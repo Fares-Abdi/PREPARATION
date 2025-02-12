@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../models/colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -51,7 +53,7 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _handleSubmitted(String text) {
+  void _handleSubmitted(String text) async {
     _messageController.clear();
     if (text.trim().isEmpty) return;
 
@@ -62,20 +64,38 @@ class _ChatPageState extends State<ChatPage> {
             text: text,
             isUser: true,
             timestamp: DateTime.now(),
-          ));
-      // Simulate response
-      Future.delayed(const Duration(seconds: 1), () {
-        setState(() {
-          _messages.insert(
-              0,
-              ChatMessage(
-                text: "This is a sample response to: $text",
-                isUser: false,
-                timestamp: DateTime.now(),
-              ));
-        });
-      });
+           ));
     });
+
+    final Uri url = Uri.parse('http://127.0.0.1:8000/chat');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'query': text}),
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      setState(() {
+        _messages.insert(
+            0,
+            ChatMessage(
+              text: data['response'],
+              isUser: false,
+              timestamp: DateTime.now(),
+            ));
+      });
+    } else {
+      setState(() {
+        _messages.insert(
+            0,
+            ChatMessage(
+              text: 'Error: ${response.statusCode}',
+              isUser: false,
+              timestamp: DateTime.now(),
+            ));
+      });
+    }
   }
 
   @override
