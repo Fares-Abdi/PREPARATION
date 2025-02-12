@@ -64,33 +64,49 @@ class _ChatPageState extends State<ChatPage> {
             text: text,
             isUser: true,
             timestamp: DateTime.now(),
-           ));
+          ));
     });
 
-    final Uri url = Uri.parse('http://127.0.0.1:8000/chat');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'query': text}),
-    );
+    try {
+      final Uri url = Uri.parse(
+          'http://10.156.140.216:8000/chat'); // Correct server address
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_id': '12345', // Add user_id
+          'query': text
+        }),
+      );
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        setState(() {
+          _messages.insert(
+              0,
+              ChatMessage(
+                text: data['response'],
+                isUser: false,
+                timestamp: DateTime.now(),
+              ));
+        });
+      } else {
+        setState(() {
+          _messages.insert(
+              0,
+              ChatMessage(
+                text: 'Error: ${response.statusCode}',
+                isUser: false,
+                timestamp: DateTime.now(),
+              ));
+        });
+      }
+    } catch (e) {
       setState(() {
         _messages.insert(
             0,
             ChatMessage(
-              text: data['response'],
-              isUser: false,
-              timestamp: DateTime.now(),
-            ));
-      });
-    } else {
-      setState(() {
-        _messages.insert(
-            0,
-            ChatMessage(
-              text: 'Error: ${response.statusCode}',
+              text: 'Connection error: $e',
               isUser: false,
               timestamp: DateTime.now(),
             ));
