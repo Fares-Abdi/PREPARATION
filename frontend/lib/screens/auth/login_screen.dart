@@ -444,51 +444,7 @@ class _LoginScreenState extends State<LoginScreen>
         final User? user = userCredential.user;
 
         if (user != null) {
-          // Check if email is verified
-          if (!user.emailVerified) {
-            // Show verification needed message with resend option
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(localizations.verifyEmailBeforeLogin),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 8),
-                action: SnackBarAction(
-                  label: localizations.resend,
-                  textColor: Colors.white,
-                  onPressed: () async {
-                    try {
-                      await user.sendEmailVerification();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(localizations.verificationEmailResent),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content:
-                              Text(localizations.resendVerificationEmailError),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
-            );
-
-            // Sign out the user since they haven't verified their email
-            await _auth.signOut();
-            setState(() {
-              isLoading = false;
-            });
-            return;
-          }
-
           try {
-
-            
             // Show loading indicator
             showDialog(
               context: context,
@@ -498,7 +454,6 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             );
       
-            
             // Hide loading indicator
             Navigator.of(context).pop();
       
@@ -524,9 +479,7 @@ class _LoginScreenState extends State<LoginScreen>
               final prefs = await SharedPreferences.getInstance();
               await prefs.setBool('isLoggedIn', true);
               Navigator.pushNamed(context, '/navbar');
-            } else {
-              Navigator.pushNamed(context, '/info');
-            }
+            } 
           } catch (e) {
             debugPrint('Error during data initialization: $e');
             ScaffoldMessenger.of(context).showSnackBar(

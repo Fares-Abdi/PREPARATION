@@ -14,11 +14,27 @@
       },
       "oauth_client": [
         {
+          "client_id": "200399055018-0oqviig4aeg30rssugnoaatm92jgq6fp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.NCS.MOBAI",
+            "certificate_hash": "303399b0a7327b2b6b1f582173d6a5fce8d8b271"
+          }
+        },
+        {
           "client_id": "200399055018-bg7n1c0ildl5u22vd05m25j5u3mo77qc.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.NCS.MOBAI",
             "certificate_hash": "c374a75263cd2ae91e07eca9a537a83e26a2bb0b"
+          }
+        },
+        {
+          "client_id": "200399055018-d4dckqudfmubqfujc05m9ohds45m3bpk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.NCS.MOBAI",
+            "certificate_hash": "c99d353001ba579008bbdf1e200c1e54e1d67fde"
           }
         },
         {
