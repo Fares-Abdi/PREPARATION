@@ -11,24 +11,28 @@ import 'package:flutter/services.dart'; // Import SystemChrome
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 import 'navbar.dart';
-
+import 'theme/app_theme.dart';
+import 'screens/game/offline_game_screen.dart';
+import 'screens/game/online_game_screen.dart';
+import 'screens/game/multiplayer_screen.dart';
+import 'screens/leaderboard/leaderboard_screen.dart';
+import 'screens/profile/profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Firebase first
   await Firebase.initializeApp();
-  
 
   final cameras = await availableCameras();
-  
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  
+
   final initialRoute = await _determineInitialRoute();
-  
+
   runApp(MyApp(cameras: cameras, initialRoute: initialRoute));
 }
 
@@ -47,7 +51,6 @@ Future<String> _determineInitialRoute() async {
   }
   return '/login'; // Default to login if not logged in
 }
-
 
 class MyApp extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -79,13 +82,8 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Hanini',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        textTheme: Theme.of(context).textTheme.apply(
-              fontFamily: 'Poppins',
-            ),
-      ),
+      title: 'Drawing Game',
+      theme: AppTheme.lightTheme,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -111,6 +109,11 @@ class _MyAppState extends State<MyApp> {
       '/navbar': (context) => NavbarPage(initialIndex: 0),
       '/settings': (context) => SettingsScreen(),
       '/forgot_password': (context) => ForgotPasswordScreen(),
+      '/offline-game': (context) => const OfflineGameScreen(),
+      '/online-game': (context) => const OnlineGameScreen(),
+      '/multiplayer': (context) => const MultiplayerScreen(),
+      '/leaderboard': (context) => const LeaderboardScreen(),
+      '/profile': (context) => const ProfileScreen(),
     };
   }
 }

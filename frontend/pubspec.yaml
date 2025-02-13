@@ -5,49 +5,70 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.5.0 <4.0.0"
+  sdk: '>=3.5.0 <4.0.0'
+  flutter: ">=3.16.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  lottie: ^2.1.0
-  url_launcher: ^6.1.8
-  provider: ^6.0.5
-  animated_text_kit: ^4.2.2
-  google_fonts: ^6.2.1
-  http: ^1.2.2
-  path_provider: ^2.1.5
-  camera: ^0.11.0+2
-  permission_handler: ^11.3.1
-  flutter_localizations: # Required for localization support
+  flutter_localizations:
     sdk: flutter
-  intl: ^0.19.0 # Correctly aligned
-  shared_preferences: ^2.3.3 #required for storing login state
-  font_awesome_flutter: ^10.4.0
-  flutter_dotenv: ^5.2.1
-  flutter_animate: ^4.5.2
-  image_picker: ^1.1.2
-  carousel_slider: ^5.0.0
+    
+  # Firebase
+  firebase_core: ^3.11.0
   firebase_auth: ^5.3.3
-  firebase_core: ^3.8.0
-  google_sign_in: ^5.4.2 
-  cloud_firestore: ^5.5.0
-  localization: ^2.1.1
-  geolocator: ^13.0.2 # For GPS functionality
-  flutter_rating_bar: ^4.0.1
-  uuid: ^4.5.1
-  googleapis: ^13.2.0
-  googleapis_auth: ^1.6.0
+  cloud_firestore: ^5.6.3
   firebase_storage: ^12.3.7
   firebase_messaging: ^15.1.6
-  image: ^3.0.1
+  
+  # UI packages
+  cupertino_icons: ^1.0.8
+  font_awesome_flutter: ^10.4.0
   flutter_svg: ^1.0.0
-  pull_to_refresh: ^2.0.0
+  flutter_animate: ^4.5.2
+  carousel_slider: ^5.0.0
+  flutter_rating_bar: ^4.0.1
+  lottie: ^2.1.0
+  animated_text_kit: ^4.2.2
+  google_fonts: ^6.2.1
+  
+  # State management & utilities
+  provider: ^6.0.5
+  shared_preferences: ^2.3.3
+  image_picker: ^1.1.2
+  url_launcher: ^6.1.8
+  uuid: ^4.5.1
+  intl: ^0.19.0
+  
+  # Storage & data
+  path_provider: ^2.1.5
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  speech_to_text: ^7.0.0
+  
+  # API & Network
+  http: ^1.2.2
+  googleapis: ^13.2.0
+  googleapis_auth: ^1.6.0
+  
+  # Media & sensors
+  camera: ^0.11.0+2
   just_audio: ^0.9.46
-  noise_meter: ^5.0.2  # Updated from ^3.1.0
+  speech_to_text: ^7.0.0
+  noise_meter: ^5.0.2
+  geolocator: ^13.0.2
+  
+  # Configuration
+  flutter_dotenv: ^5.2.1
+  
+  # Realtime communication
+  flutter_webrtc: ^0.9.48+hotfix.1
+  
+  # Localization
+  localization: ^2.1.1
+
+  # Pull to refresh
+  pull_to_refresh: ^2.0.0
+  google_sign_in: ^6.2.2
 
 dev_dependencies:
   flutter_test:
@@ -59,7 +80,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  generate: true  # This line enables localization code generation
+  generate: true
+
   assets:
     - assets/credentials/
     - assets/services_icon/
