@@ -30,6 +30,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
   bool _isPlaying = false;
   List<Map<String, dynamic>> _conversation = [];
   late AnimationController _animationController;
+  double _soundLevel = 0.0;
 
   @override
   void initState() {
@@ -143,8 +144,66 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
       listenFor: Duration(seconds: 10),
       cancelOnError: true,
       partialResults: false,
+      onSoundLevelChange: (level) {
+        setState(() {
+          _soundLevel = level.clamp(0.0, 10.0);
+        });
+      },
     );
     setState(() => _isListening = true);
+  }
+
+  Widget _buildVoiceAnimation() {
+    double baseSize = 200.0;
+    double circleSize = baseSize + (_soundLevel * 10);
+    
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Background pulse animation
+        if (_isListening)
+          AnimatedContainer(
+            duration: Duration(milliseconds: 100),
+            width: circleSize,
+            height: circleSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.blue.withOpacity(0.2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.3),
+                  blurRadius: _soundLevel * 10,
+                  spreadRadius: _soundLevel * 5,
+                ),
+              ],
+            ),
+          ),
+        // Main animation
+        AnimatedSwitcher(
+          duration: Duration(milliseconds: 300),
+          child: _isListening
+              ? Lottie.asset(
+                  'assets/animation/voice_wave.json',
+                  width: baseSize,
+                  height: baseSize,
+                  key: ValueKey('listening'),
+                )
+              : _isPlaying
+                  ? Lottie.asset(
+                      'assets/animation/voice_wave2.json',
+                      width: baseSize,
+                      height: baseSize,
+                      key: ValueKey('playing'),
+                    )
+                  : Lottie.asset(
+                      'assets/animation/processing.json',
+                      width: baseSize,
+                      height: baseSize,
+                      key: ValueKey('processing'),
+                    ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -186,29 +245,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(height: 100),
-                AnimatedSwitcher(
-                  duration: Duration(milliseconds: 300),
-                  child: _isListening
-                      ? Lottie.asset(
-                          'assets/animation/voice_wave.json',
-                          width: 200,
-                          height: 200,
-                          key: ValueKey('listening'),
-                        )
-                      : _isPlaying
-                          ? Lottie.asset(
-                              'assets/animation/voice_wave2.json',
-                              width: 200,
-                              height: 200,
-                              key: ValueKey('playing'),
-                            )
-                          : Lottie.asset(
-                              'assets/animation/processing.json',
-                              width: 200,
-                              height: 200,
-                              key: ValueKey('processing'),
-                            ),
-                ),
+                _buildVoiceAnimation(),
                 SizedBox(height: 40),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
