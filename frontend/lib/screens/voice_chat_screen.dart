@@ -7,11 +7,13 @@ import 'package:lottie/lottie.dart';
 
 class VoiceChatScreen extends StatefulWidget {
   final WebSocketChannel channel;
+  final Stream messageStream;
   final Function(List<Map<String, dynamic>>) onConversationComplete;
 
   const VoiceChatScreen({
     Key? key,
     required this.channel,
+    required this.messageStream,
     required this.onConversationComplete,
   }) : super(key: key);
 
@@ -33,11 +35,13 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> with SingleTickerProv
     super.initState();
     _initializeSpeech();
     _setupAudioPlayerListeners();
+    _setupWebSocketListener();
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     );
-    _startListening(); // Auto-start listening
+    // Start the conversation after a brief delay
+    Future.delayed(Duration(milliseconds: 500), _startListening);
   }
 
   void _initializeSpeech() async {
@@ -51,24 +55,76 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> with SingleTickerProv
     );
   }
 
+  void _stopListening() {
+    _speech.stop();
+    setState(() => _isListening = false);
+  }
+
+  void _setupWebSocketListener() {
+    widget.messageStream.listen((message) async {
+      final data = json.decode(message);
+      
+      if (data['type'] == 'response') {
+        // Add AI response to conversation
+        _conversation.add({
+          'text': data['text'],
+          'isUser': false,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+
+        // Wait for a brief moment before starting to listen again
+        await Future.delayed(Duration(milliseconds: 500));
+        if (mounted) {
+          _startListening();
+        }
+      } else if (data['type'] == 'audio') {
+        setState(() => _isProcessing = false);
+        _stopListening();
+        
+        try {
+          await audioPlayer.setUrl(data['audio_url']);
+          setState(() => _isPlaying = true);
+          await audioPlayer.play();
+          // The next turn will be handled by audioPlayer listener
+        } catch (e) {
+          print('Error playing audio: $e');
+          // If audio fails, start listening again
+          if (mounted) {
+            await Future.delayed(Duration(milliseconds: 500));
+            _startListening();
+          }
+        }
+      }
+    });
+  }
+
   void _setupAudioPlayerListeners() {
     audioPlayer.playerStateStream.listen((state) {
       setState(() => _isPlaying = state.playing);
+      
       if (state.processingState == ProcessingState.completed) {
-        _startListening();
-        setState(() => _isProcessing = false);
+        setState(() => _isPlaying = false);
+        // Start listening again after audio completes
+        if (mounted) {
+          Future.delayed(Duration(milliseconds: 500), _startListening);
+        }
       }
     });
   }
 
   void _startListening() {
-    if (_isListening || _isProcessing) return;
+    if (_isListening || _isProcessing || _isPlaying) return;
     
     _speech.listen(
       onResult: (result) {
         if (result.finalResult) {
           final recognizedText = result.recognizedWords;
           if (recognizedText.isNotEmpty) {
+            setState(() {
+              _isListening = false;
+              _isProcessing = true;
+            });
+
             _conversation.add({
               'text': recognizedText,
               'isUser': true,
@@ -80,11 +136,6 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> with SingleTickerProv
               'user_id': '12345',
               'text': recognizedText,
             }));
-
-            setState(() {
-              _isListening = false;
-              _isProcessing = true;
-            });
           }
         }
       },
