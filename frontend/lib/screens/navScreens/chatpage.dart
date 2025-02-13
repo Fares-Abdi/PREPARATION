@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import 'dart:convert';
 import '../../models/colors.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hanini_frontend/screens/voice_chat_screen.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({Key? key}) : super(key: key);
@@ -22,6 +23,7 @@ class _ChatPageState extends State<ChatPage> {
   late WebSocketChannel channel;
   final audioPlayer = AudioPlayer();
   bool _isProcessing = false; // Add this flag to prevent overlapping
+  late Stream broadcastStream;
 
   @override
   void initState() {
@@ -51,8 +53,11 @@ class _ChatPageState extends State<ChatPage> {
     channel = WebSocketChannel.connect(
       Uri.parse('ws://10.156.140.216:8000/ws'),
     );
+    
+    // Create a broadcast stream
+    broadcastStream = channel.stream.asBroadcastStream();
 
-    channel.stream.listen((message) async {
+    broadcastStream.listen((message) async {
       if (_isProcessing) return; // Prevent multiple processing
       _isProcessing = true;
 
@@ -199,6 +204,32 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  void _openVoiceChatScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VoiceChatScreen(
+          channel: channel,
+          messageStream: broadcastStream, // Pass the broadcast stream
+          onConversationComplete: (conversation) {
+            for (final message in conversation) {
+              setState(() {
+                _messages.insert(
+                  0,
+                  ChatMessage(
+                    text: message['text'],
+                    isUser: message['isUser'],
+                    timestamp: DateTime.parse(message['timestamp']),
+                  ),
+                );
+              });
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -280,9 +311,9 @@ class _ChatPageState extends State<ChatPage> {
       child: Row(
         children: [
           IconButton(
-            icon: Icon(_isListening ? Icons.mic_off : Icons.mic),
-            onPressed: _isListening ? _stopListening : _startListening,
-            color: _isListening ? Colors.red : Colors.grey,
+            icon: const Icon(Icons.mic),
+            onPressed: _openVoiceChatScreen,
+            color: Colors.grey,
           ),
           Expanded(
             child: TextField(

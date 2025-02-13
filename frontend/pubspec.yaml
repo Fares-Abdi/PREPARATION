@@ -47,6 +47,7 @@ dependencies:
   hive_flutter: ^1.1.0
   speech_to_text: ^7.0.0
   just_audio: ^0.9.46
+  noise_meter: ^5.0.2  # Updated from ^3.1.0
 
 dev_dependencies:
   flutter_test:
@@ -66,4 +67,7 @@ flutter:
     - assets/images/ads/
     - assets/animation/
     - assets/search_icons/
-
+    - assets/animation/voice_wave.json
+    - assets/animation/voice_wave2.json
+    - assets/animation/processing.json
+    - assets/animation/Animation - 1739443672393.json
