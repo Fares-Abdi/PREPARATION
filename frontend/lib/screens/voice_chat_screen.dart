@@ -186,24 +186,29 @@ class _VoiceChatScreenState extends State<VoiceChatScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(height: 100),
-                if (_isListening)
-                  Lottie.asset(
-                    'assets/animation/voice_wave.json',
-                    width: 200,
-                    height: 200,
-                  )
-                else if (_isProcessing || _isPlaying)
-                  Lottie.asset(
-                    'assets/animation/processing.json',
-                    width: 200,
-                    height: 200,
-                  )
-                else
-                  Icon(
-                    Icons.mic,
-                    size: 100,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
+                AnimatedSwitcher(
+                  duration: Duration(milliseconds: 300),
+                  child: _isListening
+                      ? Lottie.asset(
+                          'assets/animation/voice_wave.json',
+                          width: 200,
+                          height: 200,
+                          key: ValueKey('listening'),
+                        )
+                      : _isPlaying
+                          ? Lottie.asset(
+                              'assets/animation/voice_wave2.json',
+                              width: 200,
+                              height: 200,
+                              key: ValueKey('playing'),
+                            )
+                          : Lottie.asset(
+                              'assets/animation/processing.json',
+                              width: 200,
+                              height: 200,
+                              key: ValueKey('processing'),
+                            ),
+                ),
                 SizedBox(height: 40),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
