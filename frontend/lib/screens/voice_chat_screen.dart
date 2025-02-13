@@ -21,7 +21,8 @@ class VoiceChatScreen extends StatefulWidget {
   _VoiceChatScreenState createState() => _VoiceChatScreenState();
 }
 
-class _VoiceChatScreenState extends State<VoiceChatScreen> with SingleTickerProviderStateMixin {
+class _VoiceChatScreenState extends State<VoiceChatScreen>
+    with SingleTickerProviderStateMixin {
   final stt.SpeechToText _speech = stt.SpeechToText();
   final audioPlayer = AudioPlayer();
   bool _isListening = false;
@@ -63,7 +64,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> with SingleTickerProv
   void _setupWebSocketListener() {
     widget.messageStream.listen((message) async {
       final data = json.decode(message);
-      
+
       if (data['type'] == 'response') {
         // Add AI response to conversation
         _conversation.add({
@@ -80,7 +81,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> with SingleTickerProv
       } else if (data['type'] == 'audio') {
         setState(() => _isProcessing = false);
         _stopListening();
-        
+
         try {
           await audioPlayer.setUrl(data['audio_url']);
           setState(() => _isPlaying = true);
@@ -101,7 +102,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> with SingleTickerProv
   void _setupAudioPlayerListeners() {
     audioPlayer.playerStateStream.listen((state) {
       setState(() => _isPlaying = state.playing);
-      
+
       if (state.processingState == ProcessingState.completed) {
         setState(() => _isPlaying = false);
         // Start listening again after audio completes
@@ -114,7 +115,7 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> with SingleTickerProv
 
   void _startListening() {
     if (_isListening || _isProcessing || _isPlaying) return;
-    
+
     _speech.listen(
       onResult: (result) {
         if (result.finalResult) {
@@ -161,36 +162,68 @@ class _VoiceChatScreenState extends State<VoiceChatScreen> with SingleTickerProv
           },
         ),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(height: 100),
-            if (_isListening)
-              Lottie.asset(
-                'assets/animation/voice_wave.json',
-                width: 200,
-                height: 200,
-              )
-            else if (_isProcessing || _isPlaying)
-              Lottie.asset(
-                'assets/animation/processing.json',
-                width: 200,
-                height: 200,
-              )
-            else
-              Icon(Icons.mic, size: 100, color: Colors.white),
-            SizedBox(height: 40),
-            Text(
-              _getStatusText(),
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w300,
+      body: Stack(
+        children: [
+          // Background Animation with zoom effect
+          Transform.scale(
+            scale: 1.2, // Slightly zoom in the animation
+            child: Positioned.fill(
+              top: -50, // Extend beyond the top
+              bottom: -50, // Extend beyond the bottom
+              left: -50, // Extend beyond the left
+              right: -50, // Extend beyond the right
+              child: Lottie.asset(
+                'assets/animation/Animation - 1739443672393.json',
+                fit: BoxFit.cover,
+                width: MediaQuery.of(context).size.width * 1.2,
+                height: MediaQuery.of(context).size.height * 1.2,
               ),
             ),
-          ],
-        ),
+          ),
+          // Content
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(height: 100),
+                if (_isListening)
+                  Lottie.asset(
+                    'assets/animation/voice_wave.json',
+                    width: 200,
+                    height: 200,
+                  )
+                else if (_isProcessing || _isPlaying)
+                  Lottie.asset(
+                    'assets/animation/processing.json',
+                    width: 200,
+                    height: 200,
+                  )
+                else
+                  Icon(
+                    Icons.mic,
+                    size: 100,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                SizedBox(height: 40),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _getStatusText(),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
