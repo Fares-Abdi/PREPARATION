@@ -16,8 +16,12 @@ class GameService {
         .child(gameId)
         .onValue
         .map((event) {
-      return GameSession.fromJson(
-        Map<String, dynamic>.from(event.snapshot.value as Map));
+      if (event.snapshot.value == null) {
+        throw Exception('Game session not found');
+      }
+      // Fix type casting
+      final data = Map<String, dynamic>.from(event.snapshot.value as Map<Object?, Object?>);
+      return GameSession.fromJson(data);
     });
   }
 
@@ -111,10 +115,11 @@ class GameService {
         .map((event) {
       final games = <GameSession>[];
       if (event.snapshot.value != null) {
-        final gamesMap = Map<String, dynamic>.from(event.snapshot.value as Map);
+        // Fix type casting
+        final gamesMap = Map<String, dynamic>.from(event.snapshot.value as Map<Object?, Object?>);
         gamesMap.forEach((key, value) {
-          final gameData = Map<String, dynamic>.from(value);
-          gameData['id'] = key; // Ensure id is set
+          final gameData = Map<String, dynamic>.from(value as Map<Object?, Object?>);
+          gameData['id'] = key;
           games.add(GameSession.fromJson(gameData));
         });
       }

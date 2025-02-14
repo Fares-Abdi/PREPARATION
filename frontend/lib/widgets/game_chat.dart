@@ -79,9 +79,11 @@ class _GameChatState extends State<GameChat> {
 
               final messages = <Map<String, dynamic>>[];
               if (snapshot.data?.snapshot.value != null) {
+                // Fix type casting
                 final messagesMap = Map<String, dynamic>.from(
-                    snapshot.data!.snapshot.value as Map);
-                messages.addAll(messagesMap.values.cast<Map<String, dynamic>>());
+                    snapshot.data!.snapshot.value as Map<Object?, Object?>);
+                messages.addAll(messagesMap.values.map((value) => 
+                    Map<String, dynamic>.from(value as Map<Object?, Object?>)));
                 messages.sort((a, b) => 
                     (a['timestamp'] as int).compareTo(b['timestamp'] as int));
               }
