@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'dart:math' show pi, cos, sin;
 import 'package:firebase_database/firebase_database.dart';
 import '../models/drawing_session.dart';
+import '../models/game_session.dart';
 
 class _DrawingPainter extends CustomPainter {
   final List<DrawingPoint?> drawingPoints;
@@ -155,6 +156,7 @@ class AdvancedDrawingCanvas extends StatefulWidget {
   final List<Color> colors;
   final List<double> strokeWeights;
   final VoidCallback? onDrawingComplete;
+  final GameSession? gameSession;  // Add this
 
   const AdvancedDrawingCanvas({
     Key? key,
@@ -174,6 +176,7 @@ class AdvancedDrawingCanvas extends StatefulWidget {
     ],
     this.strokeWeights = const [2, 4, 6, 8, 10, 12, 16, 20],
     this.onDrawingComplete,
+    this.gameSession,
   }) : super(key: key);
 
   @override
@@ -209,6 +212,11 @@ class AdvancedDrawingCanvasState extends State<AdvancedDrawingCanvas>
     {'name': 'Diamond', 'value': 'diamond', 'icon': Icons.diamond_outlined},
   ];
 
+  bool get isDrawingAllowed => 
+      widget.gameSession == null || 
+      widget.gameSession!.players
+          .firstWhere((p) => p.id == widget.userId)
+          .isDrawing;
 
   void undo() {
     if (drawingPoints.isNotEmpty) {
@@ -257,6 +265,54 @@ class AdvancedDrawingCanvasState extends State<AdvancedDrawingCanvas>
           .child(widget.sessionId!);
       _initializeSession();
     }
+
+    if (widget.gameSession != null) {
+      _sessionRef = FirebaseDatabase.instance
+          .ref()
+          .child('game_sessions')
+          .child(widget.gameSession!.id)
+          .child('drawing_data');
+
+      // Listen to drawing updates
+      _sessionRef.onValue.listen((event) {
+        if (!mounted) return;
+        if (event.snapshot.value == null) return;
+
+        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+        if (data['points'] != null) {
+          final List<DrawingPoint?> newPoints = [];
+          for (var point in List<dynamic>.from(data['points'])) {
+            if (point == null) {
+              newPoints.add(null);
+              continue;
+            }
+            final pointData = Map<String, dynamic>.from(point);
+            newPoints.add(DrawingPoint(
+              offset: Offset(
+                pointData['x'].toDouble(),
+                pointData['y'].toDouble(),
+              ),
+              paint: Paint()
+                ..color = Color(pointData['color'] as int)
+                ..strokeWidth = pointData['strokeWidth'].toDouble()
+                ..style = pointData['isFilled'] == true
+                    ? PaintingStyle.fill
+                    : PaintingStyle.stroke,
+              shape: pointData['shape'] as String?,
+              endOffset: pointData['endX'] != null
+                  ? Offset(
+                      pointData['endX'].toDouble(),
+                      pointData['endY'].toDouble(),
+                    )
+                  : null,
+            ));
+          }
+          setState(() {
+            drawingPoints = newPoints;
+          });
+        }
+      });
+    }
   }
 
   Future<void> _initializeSession() async {
@@ -282,21 +338,106 @@ class AdvancedDrawingCanvasState extends State<AdvancedDrawingCanvas>
     });
   }
 
+  void _initializeDrawingSync() {
+    // Listen to real-time drawing updates
+    _sessionRef.child('points').onChildAdded.listen((event) {
+      if (!_isInitialized) return;
+      
+      final pointData = Map<String, dynamic>.from(event.snapshot.value as Map);
+      
+      if (pointData['isSeparator'] == true) {
+        setState(() {
+          drawingPoints.add(null);
+        });
+        return;
+      }
+
+      final point = DrawingPoint(
+        offset: Offset(pointData['x'] as double, pointData['y'] as double),
+        paint: Paint()
+          ..color = Color(pointData['color'] as int)
+          ..strokeWidth = pointData['strokeWidth'] as double
+          ..style = pointData['isFilled'] == true 
+              ? PaintingStyle.fill 
+              : PaintingStyle.stroke,
+        shape: pointData['shape'] as String?,
+        endOffset: pointData['endX'] != null && pointData['endY'] != null
+            ? Offset(pointData['endX'] as double, pointData['endY'] as double)
+            : null,
+      );
+
+      setState(() {
+        drawingPoints.add(point);
+      });
+    });
+
+    // Listen to clear canvas events
+    _sessionRef.child('clear').onValue.listen((event) {
+      if (event.snapshot.value == true) {
+        setState(() {
+          drawingPoints.clear();
+          redoStack.clear();
+        });
+      }
+    });
+  }
+
   void _syncPoint(DrawingPoint? point) {
-    if (widget.sessionId == null || point == null) return;
+    if (!isDrawingAllowed) return;
+    
+    if (point == null) {
+      _sessionRef.child('points').push().set({
+        'isSeparator': true,
+        'timestamp': ServerValue.timestamp,
+      });
+      return;
+    }
 
-    final serializablePoint = SerializableDrawingPoint(
-      x: point.offset.dx,
-      y: point.offset.dy,
-      strokeWidth: point.paint.strokeWidth,
-      color: point.paint.color.value,
-      shape: point.shape,
-      endX: point.endOffset?.dx,
-      endY: point.endOffset?.dy,
-      isFilled: point.paint.style == PaintingStyle.fill,
-    );
+    final pointData = {
+      'x': point.offset.dx,
+      'y': point.offset.dy,
+      'color': point.paint.color.value,
+      'strokeWidth': point.paint.strokeWidth,
+      'isFilled': point.paint.style == PaintingStyle.fill,
+      'shape': point.shape,
+      'endX': point.endOffset?.dx,
+      'endY': point.endOffset?.dy,
+      'timestamp': ServerValue.timestamp,
+    };
 
-    _sessionRef.child('points').push().set(serializablePoint.toJson());
+    _sessionRef.child('points').push().set(pointData);
+  }
+
+  void _syncDrawing() {
+    if (!isDrawingAllowed || widget.gameSession == null) return;
+
+    final pointsData = drawingPoints.map((point) {
+      if (point == null) return null;
+      return {
+        'x': point.offset.dx,
+        'y': point.offset.dy,
+        'color': point.paint.color.value,
+        'strokeWidth': point.paint.strokeWidth,
+        'isFilled': point.paint.style == PaintingStyle.fill,
+        'shape': point.shape,
+        'endX': point.endOffset?.dx,
+        'endY': point.endOffset?.dy,
+      };
+    }).toList();
+
+    _sessionRef.set({
+      'points': pointsData,
+      'timestamp': ServerValue.timestamp,
+    });
+  }
+
+  void clearCanvas() {
+    if (!isDrawingAllowed) return;
+    setState(() {
+      drawingPoints.clear();
+      redoStack.clear();
+    });
+    _syncDrawing();
   }
 
   @override
@@ -306,6 +447,7 @@ class AdvancedDrawingCanvasState extends State<AdvancedDrawingCanvas>
   }
 
 void onPanStart(DragStartDetails details) {
+    if (!isDrawingAllowed) return;
     // Add a separator (null) point when starting a new stroke
     if (selectedShape == 'freehand' || selectedShape == 'eraser') {
       drawingPoints.add(null);
@@ -333,9 +475,11 @@ void onPanStart(DragStartDetails details) {
         _syncPoint(point);
       }
     });
+    _syncDrawing();
   }
 
   void onPanUpdate(DragUpdateDetails details) {
+    if (!isDrawingAllowed) return;
     setState(() {
       currentDragPosition = details.localPosition;
       if (selectedShape == 'freehand' || selectedShape == 'eraser') {
@@ -352,9 +496,11 @@ void onPanStart(DragStartDetails details) {
         _syncPoint(point);
       }
     });
+    _syncDrawing();
   }
 
   void onPanEnd(DragEndDetails details) {
+    if (!isDrawingAllowed) return;
     if (selectedShape != 'freehand' && selectedShape != 'eraser' && 
         startPoint != null && currentDragPosition != null) {
       setState(() {
@@ -375,6 +521,7 @@ void onPanStart(DragStartDetails details) {
       currentDragPosition = null;
       redoStack.clear(); // Clear redo stack when new drawing occurs
     });
+    _syncDrawing();
   }
 
 
@@ -661,10 +808,7 @@ void onPanStart(DragStartDetails details) {
                   IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: () {
-                      setState(() {
-                        drawingPoints.clear();
-                        redoStack.clear();
-                      });
+                      clearCanvas();
                     },
                   ),
                 ],
@@ -677,6 +821,47 @@ void onPanStart(DragStartDetails details) {
           bottom: 16,
           child: buildSpeedDial(),
         ),
+        if (!isDrawingAllowed)
+          Container(
+            width: double.infinity,
+            height: double.infinity,
+            color: Colors.transparent,
+            child: AbsorbPointer(),
+          ),
+        if (widget.gameSession != null)
+          Positioned(
+            top: 8,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  isDrawingAllowed
+                      ? 'Draw: ${widget.gameSession!.currentWord}'
+                      : 'Guess the word!',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDrawingAllowed ? Colors.green : Colors.blue,
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

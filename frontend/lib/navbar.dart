@@ -13,6 +13,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:hanini_frontend/screens/navScreens/notificationspage.dart';
 import 'models/colors.dart';
 import 'package:hanini_frontend/main.dart'; // Import MyApp class
+import 'screens/scribble_lobby_screen.dart';
 
 class CustomNavBar extends StatelessWidget {
   final int selectedIndex;
@@ -52,9 +53,13 @@ class CustomNavBar extends StatelessWidget {
             label: "Chat",
             isSelected: selectedIndex == 3),
         _buildDestination(
+            icon: Icons.games,
+            label: 'Scribble',
+            isSelected: selectedIndex == 4),
+        _buildDestination(
             icon: Iconsax.user,
             label: appLocalizations.profile,
-            isSelected: selectedIndex == 4),
+            isSelected: selectedIndex == 5),
       ],
     );
   }
@@ -128,6 +133,7 @@ class _NavbarPageState extends State<NavbarPage> {
           SearchPage(),
           FavoritesPage(),
           ChatPage(), // Add ChatPage here
+          ScribbleLobbyScreen(), // Add Scribble Game here
           SimpleUserProfile(),
         ];
         isLoading = false;
