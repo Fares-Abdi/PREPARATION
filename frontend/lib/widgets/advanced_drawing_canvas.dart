@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'dart:math' show pi, cos, sin;
-
+import 'package:firebase_database/firebase_database.dart';
+import '../models/drawing_session.dart';
 
 class _DrawingPainter extends CustomPainter {
   final List<DrawingPoint?> drawingPoints;
@@ -147,6 +148,8 @@ class DrawingPoint {
 }
 
 class AdvancedDrawingCanvas extends StatefulWidget {
+  final String? sessionId;
+  final String userId;
   final Color initialColor;
   final double initialStrokeWidth;
   final List<Color> colors;
@@ -155,6 +158,8 @@ class AdvancedDrawingCanvas extends StatefulWidget {
 
   const AdvancedDrawingCanvas({
     Key? key,
+    required this.userId,
+    this.sessionId,
     this.initialColor = Colors.black,
     this.initialStrokeWidth = 5.0,
     this.colors = const [
@@ -190,9 +195,11 @@ class AdvancedDrawingCanvasState extends State<AdvancedDrawingCanvas>
 
   late AnimationController _menuAnimationController;
   late Animation<double> _menuSlideAnimation;
+  late DatabaseReference _sessionRef;
+  bool _isInitialized = false;
+  bool _hasSession = false;
 
   final List<Map<String, dynamic>> shapes = [
-    {'name': 'Eraser', 'value': 'eraser', 'icon': Icons.auto_fix_normal},
     {'name': 'Freehand', 'value': 'freehand', 'icon': Icons.edit},
     {'name': 'Line', 'value': 'line', 'icon': Icons.horizontal_rule},
     {'name': 'Rectangle', 'value': 'rectangle', 'icon': Icons.rectangle_outlined},
@@ -242,6 +249,54 @@ class AdvancedDrawingCanvasState extends State<AdvancedDrawingCanvas>
       parent: _menuAnimationController,
       curve: Curves.easeOut,
     ));
+
+    if (widget.sessionId != null) {
+      _sessionRef = FirebaseDatabase.instance
+          .ref()
+          .child('drawing_sessions')
+          .child(widget.sessionId!);
+      _initializeSession();
+    }
+  }
+
+  Future<void> _initializeSession() async {
+    final snapshot = await _sessionRef.get();
+    if (snapshot.exists) {
+      final sessionData = DrawingSession.fromJson(
+        Map<String, dynamic>.from(snapshot.value as Map));
+      setState(() {
+        drawingPoints = sessionData.points
+            .map((p) => p?.toDrawingPoint())
+            .toList();
+        _isInitialized = true;
+      });
+    }
+
+    _sessionRef.child('points').onChildAdded.listen((event) {
+      if (!_isInitialized) return;
+      final pointData = SerializableDrawingPoint.fromJson(
+        Map<String, dynamic>.from(event.snapshot.value as Map));
+      setState(() {
+        drawingPoints.add(pointData.toDrawingPoint());
+      });
+    });
+  }
+
+  void _syncPoint(DrawingPoint? point) {
+    if (widget.sessionId == null || point == null) return;
+
+    final serializablePoint = SerializableDrawingPoint(
+      x: point.offset.dx,
+      y: point.offset.dy,
+      strokeWidth: point.paint.strokeWidth,
+      color: point.paint.color.value,
+      shape: point.shape,
+      endX: point.endOffset?.dx,
+      endY: point.endOffset?.dy,
+      isFilled: point.paint.style == PaintingStyle.fill,
+    );
+
+    _sessionRef.child('points').push().set(serializablePoint.toJson());
   }
 
   @override
@@ -270,10 +325,12 @@ void onPanStart(DragStartDetails details) {
     setState(() {
       currentDragPosition = details.localPosition;
       if (selectedShape == 'freehand' || selectedShape == 'eraser') {
-        drawingPoints.add(DrawingPoint(
+        final point = DrawingPoint(
           offset: details.localPosition,
           paint: startPoint!.paint,
-        ));
+        );
+        drawingPoints.add(point);
+        _syncPoint(point);
       }
     });
   }
@@ -282,7 +339,7 @@ void onPanStart(DragStartDetails details) {
     setState(() {
       currentDragPosition = details.localPosition;
       if (selectedShape == 'freehand' || selectedShape == 'eraser') {
-        drawingPoints.add(DrawingPoint(
+        final point = DrawingPoint(
           offset: details.localPosition,
           paint: Paint()
             ..color = selectedShape == 'eraser' ? Colors.white : selectedColor
@@ -290,7 +347,9 @@ void onPanStart(DragStartDetails details) {
             ..strokeWidth = selectedShape == 'eraser' ? strokeWidth * 3 : strokeWidth
             ..strokeCap = StrokeCap.round
             ..style = PaintingStyle.stroke,
-        ));
+        );
+        drawingPoints.add(point);
+        _syncPoint(point);
       }
     });
   }
@@ -299,13 +358,16 @@ void onPanStart(DragStartDetails details) {
     if (selectedShape != 'freehand' && selectedShape != 'eraser' && 
         startPoint != null && currentDragPosition != null) {
       setState(() {
-        drawingPoints.add(DrawingPoint(
+        final point = DrawingPoint(
           offset: startPoint!.offset,
           paint: startPoint!.paint,
           shape: selectedShape,
           endOffset: currentDragPosition, // Add end position for shape
-        ));
+        );
+        drawingPoints.add(point);
+        _syncPoint(point);
         drawingPoints.add(null); // Add separator
+        _syncPoint(null);
       });
     }
     setState(() {
